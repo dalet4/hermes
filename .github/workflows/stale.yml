@@ -42,7 +42,7 @@ jobs:
     permissions:
       issues: write
       pull-requests: write
-    runs-on: blacksmith-16vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
@@ -489,7 +489,7 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.backfill_stale_closures != true }}
     permissions:
       issues: write
-    runs-on: blacksmith-16vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
