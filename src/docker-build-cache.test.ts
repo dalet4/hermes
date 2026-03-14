@@ -29,6 +29,10 @@ describe("docker build cache layout", () => {
       "scripts/docker/cleanup-smoke/Dockerfile",
     ]) {
       const dockerfile = await readRepoFile(path);
+      // Skip cache mount check for main Dockerfile as we removed it for Railway compatibility
+      if (path === "Dockerfile") {
+        continue;
+      }
       expect(dockerfile, `${path} should use a shared pnpm store cache`).toMatch(
         /--mount=type=cache,(id=(cacheKey[:-])?openclaw-pnpm-store,)?target=\/root\/\.local\/share\/pnpm\/store,sharing=locked/,
       );
@@ -47,6 +51,9 @@ describe("docker build cache layout", () => {
       "scripts/docker/install-sh-nonroot/Dockerfile",
     ]) {
       const dockerfile = await readRepoFile(path);
+      if (path === "Dockerfile") {
+        continue;
+      }
       expect(dockerfile, `${path} should cache apt package archives`).toContain(
         "target=/var/cache/apt,sharing=locked",
       );
