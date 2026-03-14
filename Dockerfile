@@ -67,7 +67,7 @@ COPY --from=ext-deps /out/ ./extensions/
 # Reduce OOM risk on low-memory hosts during dependency installation.
 # Docker builds on small VMs may otherwise fail with "Killed" (exit 137).
 
-RUN --mount=type=cache,id=cacheKey-openclaw-pnpm-store,target=/root/.local/share/pnpm/store,sharing=locked \
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store,sharing=locked \
     NODE_OPTIONS=--max-old-space-size=2048 pnpm install --frozen-lockfile
 
 
@@ -134,8 +134,8 @@ WORKDIR /app
 # Install system utilities present in bookworm but missing in bookworm-slim.
 # On the full bookworm image these are already installed (apt-get is a no-op).
 
-RUN --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-lists,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && \
     if [ "${OPENCLAW_DOCKER_APT_UPGRADE}" != "0" ]; then \
       DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends; \
@@ -179,8 +179,8 @@ RUN install -d -m 0755 "$COREPACK_HOME" && \
 # Example: docker build --build-arg OPENCLAW_DOCKER_APT_PACKAGES="python3 wget" .
 ARG OPENCLAW_DOCKER_APT_PACKAGES=""
 
-RUN --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-lists,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
     if [ -n "$OPENCLAW_DOCKER_APT_PACKAGES" ]; then \
       apt-get update && \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $OPENCLAW_DOCKER_APT_PACKAGES; \
@@ -193,8 +193,8 @@ RUN --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-cache,target=/var/cache
 # Must run after node_modules COPY so playwright-core is available.
 ARG OPENCLAW_INSTALL_BROWSER=""
 
-RUN --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-lists,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
     if [ -n "$OPENCLAW_INSTALL_BROWSER" ]; then \
       apt-get update && \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends xvfb && \
@@ -212,8 +212,8 @@ RUN --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-cache,target=/var/cache
 ARG OPENCLAW_INSTALL_DOCKER_CLI=""
 ARG OPENCLAW_DOCKER_GPG_FINGERPRINT="9DC858229FC7DD38854AE2D88D81803C0EBFCD88"
 
-RUN --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,id=cacheKey-openclaw-bookworm-apt-lists,target=/var/lib/apt,sharing=locked \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
     if [ -n "$OPENCLAW_INSTALL_DOCKER_CLI" ]; then \
       apt-get update && \
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
