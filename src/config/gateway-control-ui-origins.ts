@@ -41,6 +41,7 @@ export function buildDefaultControlUiAllowedOrigins(params: {
   const origins = new Set<string>([
     `http://localhost:${params.port}`,
     `http://127.0.0.1:${params.port}`,
+    "https://gateway.tailnet.ts.net",
   ]);
   const customBindHost = params.customBindHost?.trim();
   if (params.bind === "custom" && customBindHost) {
