@@ -24,6 +24,7 @@ import {
 export type ResolvedGatewayAuthMode = "none" | "token" | "password" | "trusted-proxy";
 export type ResolvedGatewayAuthModeSource =
   | "override"
+  | "env"
   | "config"
   | "password"
   | "token"
@@ -240,6 +241,16 @@ export function resolveGatewayAuth(params: {
     }
   }
   const env = params.env ?? process.env;
+  const envAuthModeRaw = env.OPENCLAW_GATEWAY_AUTH_MODE;
+  const envAuthMode = (
+    envAuthModeRaw === "none" ||
+    envAuthModeRaw === "token" ||
+    envAuthModeRaw === "password" ||
+    envAuthModeRaw === "trusted-proxy"
+      ? envAuthModeRaw
+      : undefined
+  ) as ResolvedGatewayAuthMode | undefined;
+
   const tokenRef = resolveSecretInputRef({ value: authConfig.token }).ref;
   const passwordRef = resolveSecretInputRef({ value: authConfig.password }).ref;
   const resolvedCredentials = resolveGatewayCredentialsFromValues({
@@ -251,13 +262,15 @@ export function resolveGatewayAuth(params: {
   });
   const token = resolvedCredentials.token;
   const password = resolvedCredentials.password;
-  const trustedProxy = authConfig.trustedProxy;
 
   let mode: ResolvedGatewayAuth["mode"];
   let modeSource: ResolvedGatewayAuth["modeSource"];
   if (authOverride?.mode !== undefined) {
     mode = authOverride.mode;
     modeSource = "override";
+  } else if (envAuthMode) {
+    mode = envAuthMode;
+    modeSource = "env";
   } else if (authConfig.mode) {
     mode = authConfig.mode;
     modeSource = "config";
@@ -271,6 +284,15 @@ export function resolveGatewayAuth(params: {
     mode = "token";
     modeSource = "default";
   }
+
+  const envTrustedProxyUserHeader = env.OPENCLAW_GATEWAY_TRUSTED_PROXY_USER_HEADER;
+  const trustedProxy =
+    authConfig.trustedProxy ||
+    (mode === "trusted-proxy"
+      ? {
+          userHeader: envTrustedProxyUserHeader || "X-Control-User",
+        }
+      : undefined);
 
   const allowTailscale =
     authConfig.allowTailscale ??
