@@ -14,6 +14,11 @@ type GatewayWsRuntimeParams = Omit<
   "buildRequestContext" | "refreshHealthSnapshot"
 > & {
   context: GatewayRequestContext;
+  trustedProxies: string[];
+  allowRealIpFallback: boolean;
+  allowedOrigins?: string[];
+  dangerouslyAllowHostHeaderOriginFallback?: boolean;
+  controlUiConfig?: import("../config/config.js").GatewayControlUiConfig;
 };
 
 /** Attaches websocket handlers for an already-created gateway request context. */
@@ -43,5 +48,10 @@ export function attachGatewayWsHandlers(params: GatewayWsRuntimeParams) {
     getMethodRegistry: params.getMethodRegistry,
     broadcast: params.broadcast,
     buildRequestContext: () => params.context,
+    trustedProxies: params.trustedProxies,
+    allowRealIpFallback: params.allowRealIpFallback,
+    allowedOrigins: params.allowedOrigins,
+    dangerouslyAllowHostHeaderOriginFallback: params.dangerouslyAllowHostHeaderOriginFallback,
+    controlUiConfig: params.controlUiConfig,
   });
 }
