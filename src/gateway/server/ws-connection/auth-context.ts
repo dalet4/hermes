@@ -168,8 +168,10 @@ export async function resolveConnectAuthState(params: {
   // can skip device identity via roleCanSkipDeviceIdentity().
   const sharedAuthOk =
     (sharedAuthResult?.ok === true &&
-      (sharedAuthResult.method === "token" || sharedAuthResult.method === "password")) ||
-    (authResult.ok && authResult.method === "trusted-proxy");
+      (sharedAuthResult.method === "token" ||
+        sharedAuthResult.method === "password" ||
+        sharedAuthResult.method === "tailscale")) ||
+    (authResult.ok && (authResult.method === "trusted-proxy" || authResult.method === "tailscale"));
 
   return {
     authResult,
