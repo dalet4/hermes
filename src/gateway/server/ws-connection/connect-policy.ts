@@ -67,13 +67,10 @@ export function isTrustedProxyControlUiOperatorAuth(params: {
   authOk: boolean;
   authMethod: string | undefined;
 }): boolean {
-  return (
-    params.isControlUi &&
-    params.role === "operator" &&
-    params.authMode === "trusted-proxy" &&
-    params.authOk &&
-    params.authMethod === "trusted-proxy"
-  );
+  if (!params.isControlUi || params.role !== "operator" || !params.authOk) {
+    return false;
+  }
+  return params.authMode === "trusted-proxy" || params.authMode === "tailscale";
 }
 
 export type MissingDeviceIdentityDecision =
