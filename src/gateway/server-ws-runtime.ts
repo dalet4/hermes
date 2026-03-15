@@ -21,6 +21,11 @@ type GatewayWsRuntimeParams = Omit<GatewayWsSharedHandlerParams, "refreshHealthS
     },
   ) => void;
   context: GatewayRequestContext;
+  trustedProxies: string[];
+  allowRealIpFallback: boolean;
+  allowedOrigins?: string[];
+  dangerouslyAllowHostHeaderOriginFallback?: boolean;
+  controlUiConfig?: import("../config/config.js").GatewayControlUiConfig;
 };
 
 export function attachGatewayWsHandlers(params: GatewayWsRuntimeParams) {
@@ -49,5 +54,10 @@ export function attachGatewayWsHandlers(params: GatewayWsRuntimeParams) {
     getMethodRegistry: params.getMethodRegistry,
     broadcast: params.broadcast,
     buildRequestContext: () => params.context,
+    trustedProxies: params.trustedProxies,
+    allowRealIpFallback: params.allowRealIpFallback,
+    allowedOrigins: params.allowedOrigins,
+    dangerouslyAllowHostHeaderOriginFallback: params.dangerouslyAllowHostHeaderOriginFallback,
+    controlUiConfig: params.controlUiConfig,
   });
 }
