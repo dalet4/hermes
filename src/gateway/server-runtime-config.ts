@@ -35,6 +35,9 @@ export type GatewayRuntimeConfig = {
   tailscaleMode: "off" | "serve" | "funnel";
   hooksConfig: ReturnType<typeof resolveHooksConfig>;
   canvasHostEnabled: boolean;
+  trustedProxies: string[];
+  allowRealIpFallback: boolean;
+  dangerouslyAllowHostHeaderOriginFallback: boolean;
 };
 
 export async function resolveGatewayRuntimeConfig(params: {
@@ -114,12 +117,25 @@ export async function resolveGatewayRuntimeConfig(params: {
   const canvasHostEnabled =
     process.env.OPENCLAW_SKIP_CANVAS_HOST !== "1" && params.cfg.canvasHost?.enabled !== false;
 
-  const trustedProxies = params.cfg.gateway?.trustedProxies ?? [];
+  const envTrustedProxies = process.env.OPENCLAW_GATEWAY_TRUSTED_PROXIES;
+  const trustedProxies = envTrustedProxies
+    ? envTrustedProxies
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean)
+    : (params.cfg.gateway?.trustedProxies ?? []);
+
   const controlUiAllowedOrigins = (params.cfg.gateway?.controlUi?.allowedOrigins ?? [])
     .map((value) => value.trim())
     .filter(Boolean);
   const dangerouslyAllowHostHeaderOriginFallback =
-    params.cfg.gateway?.controlUi?.dangerouslyAllowHostHeaderOriginFallback === true;
+    params.cfg.gateway?.controlUi?.dangerouslyAllowHostHeaderOriginFallback === true ||
+    process.env.OPENCLAW_GATEWAY_CONTROL_UI_DANGEROUSLY_ALLOW_HOST_HEADER_ORIGIN_FALLBACK ===
+      "true";
+
+  const allowRealIpFallback =
+    params.cfg.gateway?.allowRealIpFallback === true ||
+    process.env.OPENCLAW_GATEWAY_ALLOW_REAL_IP_FALLBACK === "true";
 
   assertGatewayAuthConfigured(resolvedAuth, params.cfg.gateway?.auth);
   if (tailscaleMode === "funnel" && authMode !== "password") {
@@ -184,5 +200,8 @@ export async function resolveGatewayRuntimeConfig(params: {
     tailscaleMode,
     hooksConfig,
     canvasHostEnabled,
+    trustedProxies,
+    allowRealIpFallback,
+    dangerouslyAllowHostHeaderOriginFallback,
   };
 }

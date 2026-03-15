@@ -146,6 +146,8 @@ export function attachGatewayWsMessageHandler(params: {
   rateLimiter?: AuthRateLimiter;
   /** Browser-origin fallback limiter (loopback is never exempt). */
   browserRateLimiter?: AuthRateLimiter;
+  trustedProxies: string[];
+  allowRealIpFallback: boolean;
   gatewayMethods: string[];
   events: string[];
   extraHandlers: GatewayRequestHandlers;
@@ -160,6 +162,9 @@ export function attachGatewayWsMessageHandler(params: {
   setCloseCause: (cause: string, meta?: Record<string, unknown>) => void;
   setLastFrameMeta: (meta: { type?: string; method?: string; id?: string }) => void;
   originCheckMetrics: WsOriginCheckMetrics;
+  allowedOrigins?: string[];
+  dangerouslyAllowHostHeaderOriginFallback?: boolean;
+  controlUiConfig?: import("../../../config/config.js").GatewayControlUiConfig;
   logGateway: SubsystemLogger;
   logHealth: SubsystemLogger;
   logWsControl: SubsystemLogger;
@@ -179,6 +184,8 @@ export function attachGatewayWsMessageHandler(params: {
     resolvedAuth,
     rateLimiter,
     browserRateLimiter,
+    trustedProxies,
+    allowRealIpFallback,
     gatewayMethods,
     events,
     extraHandlers,
@@ -193,14 +200,13 @@ export function attachGatewayWsMessageHandler(params: {
     setCloseCause,
     setLastFrameMeta,
     originCheckMetrics,
+    allowedOrigins,
+    dangerouslyAllowHostHeaderOriginFallback,
     logGateway,
     logHealth,
     logWsControl,
   } = params;
 
-  const configSnapshot = loadConfig();
-  const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
-  const allowRealIpFallback = configSnapshot.gateway?.allowRealIpFallback === true;
   const clientIp = resolveClientIp({
     remoteAddr,
     forwardedFor,
@@ -404,13 +410,11 @@ export function attachGatewayWsMessageHandler(params: {
         const isControlUi = connectParams.client.id === GATEWAY_CLIENT_IDS.CONTROL_UI;
         const isWebchat = isWebchatConnect(connectParams);
         if (enforceOriginCheckForAnyClient || isControlUi || isWebchat) {
-          const hostHeaderOriginFallbackEnabled =
-            configSnapshot.gateway?.controlUi?.dangerouslyAllowHostHeaderOriginFallback === true;
           const originCheck = checkBrowserOrigin({
             requestHost,
             origin: requestOrigin,
-            allowedOrigins: configSnapshot.gateway?.controlUi?.allowedOrigins,
-            allowHostHeaderOriginFallback: hostHeaderOriginFallbackEnabled,
+            allowedOrigins,
+            allowHostHeaderOriginFallback: dangerouslyAllowHostHeaderOriginFallback,
             isLocalClient,
           });
           if (!originCheck.ok) {
@@ -435,7 +439,7 @@ export function attachGatewayWsMessageHandler(params: {
             logWsControl.warn(
               `security warning: websocket origin accepted via Host-header fallback conn=${connId} count=${originCheckMetrics.hostHeaderFallbackAccepted} host=${requestHost ?? "n/a"} origin=${requestOrigin ?? "n/a"}`,
             );
-            if (hostHeaderOriginFallbackEnabled) {
+            if (dangerouslyAllowHostHeaderOriginFallback) {
               logGateway.warn(
                 "security metric: gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback accepted a websocket connect request",
               );
@@ -451,7 +455,7 @@ export function attachGatewayWsMessageHandler(params: {
         const hasSharedAuth = hasTokenAuth || hasPasswordAuth;
         const controlUiAuthPolicy = resolveControlUiAuthPolicy({
           isControlUi,
-          controlUiConfig: configSnapshot.gateway?.controlUi,
+          controlUiConfig: params.controlUiConfig,
           deviceRaw,
         });
         const device = controlUiAuthPolicy.device;

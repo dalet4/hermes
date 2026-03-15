@@ -14,7 +14,6 @@ import { CANVAS_WS_PATH, handleA2uiHttpRequest } from "../canvas-host/a2ui.js";
 import type { CanvasHostHandler } from "../canvas-host/server.js";
 import { loadConfig } from "../config/config.js";
 import type { createSubsystemLogger } from "../logging/subsystem.js";
-import { resolveHookExternalContentSource as resolveHookExternalContentSourceFromSession } from "../security/external-content.js";
 import { safeEqualSecret } from "../security/secret-equal.js";
 import {
   AUTH_RATE_LIMIT_SCOPE_HOOK_AUTH,
@@ -34,7 +33,6 @@ import {
   handleControlUiHttpRequest,
   type ControlUiRootState,
 } from "./control-ui.js";
-import { handleOpenAiEmbeddingsHttpRequest } from "./embeddings-http.js";
 import { applyHookMappings } from "./hooks-mapping.js";
 import {
   extractHookToken,
@@ -56,8 +54,7 @@ import {
 } from "./hooks.js";
 import { sendGatewayAuthFailure, setDefaultSecurityHeaders } from "./http-common.js";
 import { getBearerToken } from "./http-utils.js";
-import { handleOpenAiModelsHttpRequest } from "./models-http.js";
-import { resolveRequestClientIp } from "./net.js";
+import { resolveClientIp, resolveRequestClientIp } from "./net.js";
 import { handleOpenAiHttpRequest } from "./openai-http.js";
 import { handleOpenResponsesHttpRequest } from "./openresponses-http.js";
 import { DEDUPE_MAX, DEDUPE_TTL_MS } from "./server-constants.js";
@@ -87,19 +84,6 @@ type HookDispatchers = {
   dispatchWakeHook: (value: { text: string; mode: "now" | "next-heartbeat" }) => void;
   dispatchAgentHook: (value: HookAgentDispatchPayload) => string;
 };
-
-function resolveMappedHookExternalContentSource(params: {
-  subPath: string;
-  payload: Record<string, unknown>;
-  sessionKey: string;
-}) {
-  const payloadSource =
-    typeof params.payload.source === "string" ? params.payload.source.trim().toLowerCase() : "";
-  if (params.subPath === "gmail" || payloadSource === "gmail") {
-    return "gmail" as const;
-  }
-  return resolveHookExternalContentSourceFromSession(params.sessionKey) ?? "webhook";
-}
 
 export type HookClientIpConfig = Readonly<{
   trustedProxies?: string[];
@@ -131,6 +115,9 @@ const GATEWAY_PROBE_STATUS_BY_PATH = new Map<string, "live" | "ready">([
   ["/readyz", "ready"],
 ]);
 const MATTERMOST_SLASH_CALLBACK_PATH = "/api/channels/mattermost/command";
+
+const getHeaderValue = (value: string | string[] | undefined) =>
+  Array.isArray(value) ? value[0] : value;
 
 function resolveMattermostSlashCallbackPaths(
   configSnapshot: ReturnType<typeof loadConfig>,
@@ -618,7 +605,6 @@ export function createHooksRequestHandler(
         idempotencyKey,
         sessionKey: normalizedDispatchSessionKey,
         agentId: targetAgentId,
-        externalContentSource: "webhook",
       });
       rememberHookRunId(replayKey, runId, now);
       sendJson(res, 200, { ok: true, runId });
@@ -712,11 +698,6 @@ export function createHooksRequestHandler(
             thinking: mapped.action.thinking,
             timeoutSeconds: mapped.action.timeoutSeconds,
             allowUnsafeExternalContent: mapped.action.allowUnsafeExternalContent,
-            externalContentSource: resolveMappedHookExternalContentSource({
-              subPath,
-              payload: payload as Record<string, unknown>,
-              sessionKey: sessionKey.value,
-            }),
           });
           rememberHookRunId(replayKey, runId, now);
           sendJson(res, 200, { ok: true, runId });
@@ -754,6 +735,8 @@ export function createGatewayHttpServer(opts: {
   /** Optional rate limiter for auth brute-force protection. */
   rateLimiter?: AuthRateLimiter;
   getReadiness?: ReadinessChecker;
+  trustedProxies: string[];
+  dangerouslyAllowHostHeaderOriginFallback: boolean;
   tlsOptions?: TlsOptions;
 }): HttpServer {
   const {
@@ -773,8 +756,8 @@ export function createGatewayHttpServer(opts: {
     resolvedAuth,
     rateLimiter,
     getReadiness,
+    trustedProxies,
   } = opts;
-  const openAiCompatEnabled = openAiChatCompletionsEnabled || openResponsesEnabled;
   const httpServer: HttpServer = opts.tlsOptions
     ? createHttpsServer(opts.tlsOptions, (req, res) => {
         void handleRequest(req, res);
@@ -783,7 +766,7 @@ export function createGatewayHttpServer(opts: {
         void handleRequest(req, res);
       });
 
-  async function handleRequest(req: IncomingMessage, res: ServerResponse) {
+  async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     setDefaultSecurityHeaders(res, {
       strictTransportSecurity: strictTransportSecurityHeader,
     });
@@ -795,8 +778,15 @@ export function createGatewayHttpServer(opts: {
 
     try {
       const configSnapshot = loadConfig();
-      const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
+
       const allowRealIpFallback = configSnapshot.gateway?.allowRealIpFallback === true;
+      resolveClientIp({
+        remoteAddr: req.socket.remoteAddress,
+        forwardedFor: getHeaderValue(req.headers["x-forwarded-for"]),
+        realIp: getHeaderValue(req.headers["x-real-ip"]),
+        trustedProxies,
+        allowRealIpFallback,
+      });
       const scopedCanvas = normalizeCanvasScopedUrl(req.url ?? "/");
       if (scopedCanvas.malformedScopedPath) {
         sendGatewayAuthFailure(res, { ok: false, reason: "unauthorized" });
@@ -814,30 +804,6 @@ export function createGatewayHttpServer(opts: {
         {
           name: "hooks",
           run: () => handleHooksRequest(req, res),
-        },
-        {
-          name: "models",
-          run: () =>
-            openAiCompatEnabled
-              ? handleOpenAiModelsHttpRequest(req, res, {
-                  auth: resolvedAuth,
-                  trustedProxies,
-                  allowRealIpFallback,
-                  rateLimiter,
-                })
-              : false,
-        },
-        {
-          name: "embeddings",
-          run: () =>
-            openAiCompatEnabled
-              ? handleOpenAiEmbeddingsHttpRequest(req, res, {
-                  auth: resolvedAuth,
-                  trustedProxies,
-                  allowRealIpFallback,
-                  rateLimiter,
-                })
-              : false,
         },
         {
           name: "tools-invoke",
@@ -1011,8 +977,20 @@ export function attachGatewayUpgradeHandler(opts: {
   resolvedAuth: ResolvedGatewayAuth;
   /** Optional rate limiter for auth brute-force protection. */
   rateLimiter?: AuthRateLimiter;
+  trustedProxies: string[];
+  allowRealIpFallback: boolean;
+  dangerouslyAllowHostHeaderOriginFallback: boolean;
 }) {
-  const { httpServer, wss, canvasHost, clients, resolvedAuth, rateLimiter } = opts;
+  const {
+    httpServer,
+    wss,
+    canvasHost,
+    clients,
+    resolvedAuth,
+    rateLimiter,
+    trustedProxies,
+    allowRealIpFallback,
+  } = opts;
   httpServer.on("upgrade", (req, socket, head) => {
     void (async () => {
       const scopedCanvas = normalizeCanvasScopedUrl(req.url ?? "/");
@@ -1027,9 +1005,6 @@ export function attachGatewayUpgradeHandler(opts: {
       if (canvasHost) {
         const url = new URL(req.url ?? "/", "http://localhost");
         if (url.pathname === CANVAS_WS_PATH) {
-          const configSnapshot = loadConfig();
-          const trustedProxies = configSnapshot.gateway?.trustedProxies ?? [];
-          const allowRealIpFallback = configSnapshot.gateway?.allowRealIpFallback === true;
           const ok = await authorizeCanvasRequest({
             req,
             auth: resolvedAuth,

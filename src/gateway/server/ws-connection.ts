@@ -70,6 +70,11 @@ export type GatewayWsSharedHandlerParams = {
   rateLimiter?: AuthRateLimiter;
   /** Browser-origin fallback limiter (loopback is never exempt). */
   browserRateLimiter?: AuthRateLimiter;
+  trustedProxies: string[];
+  allowRealIpFallback: boolean;
+  allowedOrigins?: string[];
+  dangerouslyAllowHostHeaderOriginFallback?: boolean;
+  controlUiConfig?: import("../../config/config.js").GatewayControlUiConfig;
   gatewayMethods: string[];
   events: string[];
 };
@@ -109,6 +114,11 @@ export function attachGatewayWsConnectionHandler(params: AttachGatewayWsConnecti
     extraHandlers,
     broadcast,
     buildRequestContext,
+    trustedProxies,
+    allowRealIpFallback,
+    allowedOrigins,
+    dangerouslyAllowHostHeaderOriginFallback,
+    controlUiConfig,
   } = params;
   const originCheckMetrics: WsOriginCheckMetrics = { hostHeaderFallbackAccepted: 0 };
 
@@ -292,6 +302,11 @@ export function attachGatewayWsConnectionHandler(params: AttachGatewayWsConnecti
       resolvedAuth,
       rateLimiter,
       browserRateLimiter,
+      trustedProxies,
+      allowRealIpFallback,
+      allowedOrigins,
+      dangerouslyAllowHostHeaderOriginFallback,
+      controlUiConfig,
       gatewayMethods,
       events,
       extraHandlers,
