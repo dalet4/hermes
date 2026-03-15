@@ -213,23 +213,28 @@ function hasTailscaleProxyHeaders(req?: IncomingMessage): boolean {
   );
 }
 
-function isTailscaleProxyRequest(req?: IncomingMessage): boolean {
+function isTailscaleProxyRequest(req?: IncomingMessage, trustedProxies?: string[]): boolean {
   if (!req) {
     return false;
   }
-  return isLoopbackAddress(req.socket?.remoteAddress) && hasTailscaleProxyHeaders(req);
+  const remoteAddr = req.socket?.remoteAddress;
+  return (
+    (isLoopbackAddress(remoteAddr) || isTrustedProxyAddress(remoteAddr, trustedProxies)) &&
+    hasTailscaleProxyHeaders(req)
+  );
 }
 
 async function resolveVerifiedTailscaleUser(params: {
   req?: IncomingMessage;
   tailscaleWhois: TailscaleWhoisLookup;
+  trustedProxies?: string[];
 }): Promise<{ ok: true; user: TailscaleUser } | { ok: false; reason: string }> {
   const { req, tailscaleWhois } = params;
   const tailscaleUser = getTailscaleUser(req);
   if (!tailscaleUser) {
     return { ok: false, reason: "tailscale_user_missing" };
   }
-  if (!isTailscaleProxyRequest(req)) {
+  if (!isTailscaleProxyRequest(req, params.trustedProxies)) {
     return { ok: false, reason: "tailscale_proxy_missing" };
   }
   const clientIp = resolveTailscaleClientIp(req);
@@ -548,6 +553,7 @@ async function authorizeGatewayConnectCore(
     const tailscaleCheck = await resolveVerifiedTailscaleUser({
       req,
       tailscaleWhois,
+      trustedProxies,
     });
     if (tailscaleCheck.ok) {
       limiter?.reset(ip, rateLimitScope);
