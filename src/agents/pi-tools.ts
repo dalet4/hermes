@@ -1,4 +1,4 @@
-import { codingTools, createReadTool, readTool } from "@mariozechner/pi-coding-agent";
+import { codingTools, readTool } from "@mariozechner/pi-coding-agent";
 import type { OpenClawConfig } from "../config/config.js";
 import type { ModelCompatConfig } from "../config/types.models.js";
 import type { ToolLoopDetectionConfig } from "../config/types.tools.js";
@@ -31,6 +31,7 @@ import {
 import {
   assertRequiredParams,
   createHostWorkspaceEditTool,
+  createHostWorkspaceReadTool,
   createHostWorkspaceWriteTool,
   createOpenClawReadTool,
   createSandboxedEditTool,
@@ -390,12 +391,12 @@ export function createOpenClawCodingTools(options?: {
             : sandboxed,
         ];
       }
-      const freshReadTool = createReadTool(workspaceRoot);
-      const wrapped = createOpenClawReadTool(freshReadTool, {
+      const wrapped = createHostWorkspaceReadTool(workspaceRoot, { workspaceOnly });
+      const openClawRead = createOpenClawReadTool(wrapped, {
         modelContextWindowTokens: options?.modelContextWindowTokens,
         imageSanitization,
       });
-      return [workspaceOnly ? wrapToolWorkspaceRootGuard(wrapped, workspaceRoot) : wrapped];
+      return [openClawRead];
     }
     if (tool.name === "bash" || tool.name === execToolName) {
       return [];

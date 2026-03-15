@@ -478,26 +478,22 @@ async function appendMemoryFlushContent(params: {
   const separator =
     existing.length > 0 && !existing.endsWith("\n") && !params.content.startsWith("\n") ? "\n" : "";
   const next = `${existing}${separator}${params.content}`;
-  if (params.sandbox) {
-    const parent = path.posix.dirname(params.relativePath);
-    if (parent && parent !== ".") {
-      await params.sandbox.bridge.mkdirp({
-        filePath: parent,
-        cwd: params.sandbox.root,
-        signal: params.signal,
-      });
-    }
-    await params.sandbox.bridge.writeFile({
-      filePath: params.relativePath,
+
+  const parent = path.posix.dirname(params.relativePath);
+  if (parent && parent !== ".") {
+    await params.sandbox.bridge.mkdirp({
+      filePath: parent,
       cwd: params.sandbox.root,
-      data: next,
-      mkdir: true,
       signal: params.signal,
     });
-    return;
   }
-  await fs.mkdir(path.dirname(params.absolutePath), { recursive: true });
-  await fs.writeFile(params.absolutePath, next, "utf-8");
+  await params.sandbox.bridge.writeFile({
+    filePath: params.relativePath,
+    cwd: params.sandbox.root,
+    data: next,
+    mkdir: true,
+    signal: params.signal,
+  });
 }
 
 export function wrapToolMemoryFlushAppendOnlyWrite(
@@ -613,6 +609,13 @@ export function createSandboxedEditTool(params: SandboxToolParams) {
       (await params.bridge.readFile({ filePath: absolutePath, cwd: params.root })).toString("utf8"),
   });
   return wrapToolParamNormalization(withRecovery, CLAUDE_PARAM_GROUPS.edit);
+}
+
+export function createHostWorkspaceReadTool(root: string, options?: { workspaceOnly?: boolean }) {
+  const base = createReadTool(root, {
+    operations: createHostReadOperations(root, options),
+  }) as unknown as AnyAgentTool;
+  return base;
 }
 
 export function createHostWorkspaceWriteTool(root: string, options?: { workspaceOnly?: boolean }) {
@@ -749,17 +752,16 @@ function createHostWriteOperations(root: string, options?: { workspaceOnly?: boo
   } as const;
 }
 
-function createHostEditOperations(root: string, options?: { workspaceOnly?: boolean }) {
+function createHostReadOperations(root: string, options?: { workspaceOnly?: boolean }) {
   const workspaceOnly = options?.workspaceOnly ?? false;
 
   if (!workspaceOnly) {
-    // When workspaceOnly is false, allow edits anywhere on the host
+    // When workspaceOnly is false, allow reads anywhere on the host
     return {
       readFile: async (absolutePath: string) => {
         const resolved = path.resolve(absolutePath);
         return await fs.readFile(resolved);
       },
-      writeFile: writeHostFile,
       access: async (absolutePath: string) => {
         const resolved = path.resolve(absolutePath);
         await fs.access(resolved);
@@ -776,15 +778,6 @@ function createHostEditOperations(root: string, options?: { workspaceOnly?: bool
         relativePath: relative,
       });
       return safeRead.buffer;
-    },
-    writeFile: async (absolutePath: string, content: string) => {
-      const relative = toRelativeWorkspacePath(root, absolutePath);
-      await writeFileWithinRoot({
-        rootDir: root,
-        relativePath: relative,
-        data: content,
-        mkdir: true,
-      });
     },
     access: async (absolutePath: string) => {
       let relative: string;
@@ -816,6 +809,16 @@ function createHostEditOperations(root: string, options?: { workspaceOnly?: bool
         throw error;
       }
     },
+  } as const;
+}
+
+function createHostEditOperations(root: string, options?: { workspaceOnly?: boolean }) {
+  const readOps = createHostReadOperations(root, options);
+  const writeOps = createHostWriteOperations(root, options);
+
+  return {
+    ...readOps,
+    ...writeOps,
   } as const;
 }
 

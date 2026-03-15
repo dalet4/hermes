@@ -385,6 +385,9 @@ export async function openWritableFileWithinRoot(params: {
   truncateExisting?: boolean;
   append?: boolean;
 }): Promise<SafeWritableOpenResult> {
+  if (params.mkdir !== false) {
+    await fs.mkdir(params.rootDir, { recursive: true });
+  }
   const { rootReal, rootWithSep, resolved } = await resolvePathWithinRoot(params);
   try {
     await assertNoPathAliasEscape({
