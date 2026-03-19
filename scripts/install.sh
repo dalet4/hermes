@@ -936,7 +936,7 @@ append_holiday_taglines() {
         "2025-10-20"|"2026-11-08"|"2027-10-28") TAGLINES+=("$HOLIDAY_DIWALI") ;;
         "2025-04-20"|"2026-04-05"|"2027-03-28") TAGLINES+=("$HOLIDAY_EASTER") ;;
         "2025-11-27"|"2026-11-26"|"2027-11-25") TAGLINES+=("$HOLIDAY_THANKSGIVING") ;;
-        "2025-12-15"|"2025-12-16"|"2025-12-17"|"2025-12-18"|"2025-12-19"|"2025-12-20"|"2025-12-21"|"2025-12-22"|"2026-12-05"|"2026-12-06"|"2026-12-07"|"2026-12-08"|"2026-12-09"|"2026-12-10"|"2026-12-11"|"2026-12-12"|"2027-12-25"|"2027-12-26"|"2027-12-27"|"2027-12-28"|"2027-12-29"|"2027-12-30"|"2027-12-31"|"2028-01-01") TAGLINES+=("$HOLIDAY_HANUKKAH") ;;
+        "2025-12-14"|"2025-12-15"|"2025-12-16"|"2025-12-17"|"2025-12-18"|"2025-12-19"|"2025-12-20"|"2025-12-21"|"2025-12-22"|"2026-12-04"|"2026-12-05"|"2026-12-06"|"2026-12-07"|"2026-12-08"|"2026-12-09"|"2026-12-10"|"2026-12-11"|"2026-12-12"|"2027-12-24"|"2027-12-25"|"2027-12-26"|"2027-12-27"|"2027-12-28"|"2027-12-29"|"2027-12-30"|"2027-12-31"|"2028-01-01") TAGLINES+=("$HOLIDAY_HANUKKAH") ;;
     esac
 }
 
@@ -2218,7 +2218,9 @@ refresh_gateway_service_if_loaded() {
         return 0
     fi
 
-    run_quiet_step "Probing gateway service" "$claw" gateway status --deep || true
+    if ! run_quiet_step "Probing gateway service" "$claw" gateway status --deep; then
+        ui_warn "Gateway probe failed after restart; run: openclaw gateway status --deep"
+    fi
 }
 
 verify_installation() {
@@ -2496,26 +2498,27 @@ main() {
                 ui_info "Config already present; running doctor"
                 run_doctor
                 should_open_dashboard=true
-                ui_info "Config already present; skipping onboarding"
                 skip_onboard=true
             fi
-            ui_info "Starting setup"
-            echo ""
-            if [[ -r /dev/tty && -w /dev/tty ]]; then
-                local claw="${OPENCLAW_BIN:-}"
-                if [[ -z "$claw" ]]; then
-                    claw="$(resolve_openclaw_bin || true)"
+            if [[ "$skip_onboard" != "true" ]]; then
+                ui_info "Starting setup"
+                echo ""
+                if [[ -r /dev/tty && -w /dev/tty ]]; then
+                    local claw="${OPENCLAW_BIN:-}"
+                    if [[ -z "$claw" ]]; then
+                        claw="$(resolve_openclaw_bin || true)"
+                    fi
+                    if [[ -z "$claw" ]]; then
+                        ui_info "Skipping onboarding (openclaw not on PATH yet)"
+                        warn_openclaw_not_found
+                        return 0
+                    fi
+                    exec </dev/tty
+                    exec "$claw" onboard
                 fi
-                if [[ -z "$claw" ]]; then
-                    ui_info "Skipping onboarding (openclaw not on PATH yet)"
-                    warn_openclaw_not_found
-                    return 0
-                fi
-                exec </dev/tty
-                exec "$claw" onboard
+                ui_info "No TTY; run openclaw onboard to finish setup"
+                return 0
             fi
-            ui_info "No TTY; run openclaw onboard to finish setup"
-            return 0
         fi
     fi
 
