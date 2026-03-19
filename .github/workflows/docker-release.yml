@@ -101,6 +101,7 @@ jobs:
           SOURCE_REF: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
         run: |
           set -euo pipefail
+          IMAGE="${IMAGE,,}"
           tags=()
           slim_tags=()
           browser_tags=()
@@ -292,6 +293,7 @@ jobs:
           SOURCE_REF: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
         run: |
           set -euo pipefail
+          IMAGE="${IMAGE,,}"
           tags=()
           slim_tags=()
           browser_tags=()
@@ -478,6 +480,7 @@ jobs:
           IS_MANUAL_BACKFILL: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
         run: |
           set -euo pipefail
+          IMAGE="${IMAGE,,}"
           tags=()
           slim_tags=()
           browser_tags=()
