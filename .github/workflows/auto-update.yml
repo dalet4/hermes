@@ -9,19 +9,81 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Sync from Upstream
+        id: sync
         run: |
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           git remote add upstream https://github.com/openclaw/openclaw.git
           git fetch upstream
           # Use rebase to keep local Railway fixes on top of upstream changes
-          git rebase upstream/main || (git rebase --abort && echo 'Rebase conflicts detected. Manual intervention required.' && exit 1)
+          if git rebase upstream/main; then
+            git push -f origin main
+          else
+            git rebase --abort
+            # Capture which files conflicted
+            CONFLICTS=$(git diff --name-only --diff-filter=U 2>/dev/null || echo "unknown")
+            echo "conflicts=$CONFLICTS" >> "$GITHUB_OUTPUT"
+            echo "upstream_sha=$(git rev-parse upstream/main)" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Open issue on conflict
+        if: failure() && steps.sync.outputs.conflicts != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          UPSTREAM_SHA="${{ steps.sync.outputs.upstream_sha }}"
+          CONFLICTS="${{ steps.sync.outputs.conflicts }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # Check if an open conflict issue already exists to avoid duplicates
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open --label "sync-conflict" --json number --jq '.[0].number')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "${{ github.repository }}" --body "$(cat <<EOF
+          Sync conflict still unresolved (upstream \`${UPSTREAM_SHA:0:10}\`).
+
+          **Conflicting files:**
+          \`\`\`
+          ${CONFLICTS}
+          \`\`\`
+
+          [Failed run]($RUN_URL)
+          EOF
+          )"
+          else
+            gh issue create \
+              --repo "${{ github.repository }}" \
+              --title "Upstream sync conflict — manual rebase required" \
+              --label "sync-conflict" \
+              --body "$(cat <<EOF
+          The nightly upstream sync failed due to a rebase conflict.
+
+          **Upstream SHA:** \`${UPSTREAM_SHA:0:10}\`
+
+          **Conflicting files:**
+          \`\`\`
+          ${CONFLICTS}
+          \`\`\`
+
+          **To fix locally:**
+          \`\`\`bash
+          git fetch upstream
+          git rebase upstream/main
+          # resolve conflicts, then:
+          git rebase --continue
           git push -f origin main
+          \`\`\`
+
+          [Failed run]($RUN_URL)
+          EOF
+          )"
+          fi
