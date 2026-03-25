@@ -76,6 +76,9 @@ export async function createGatewayRuntimeState(params: {
   logHooks: ReturnType<typeof createSubsystemLogger>;
   logPlugins: ReturnType<typeof createSubsystemLogger>;
   getReadiness?: ReadinessChecker;
+  trustedProxies: string[];
+  allowRealIpFallback: boolean;
+  dangerouslyAllowHostHeaderOriginFallback: boolean;
 }): Promise<{
   canvasHost: CanvasHostHandler | null;
   releasePluginRouteRegistry: () => void;
@@ -185,6 +188,8 @@ export async function createGatewayRuntimeState(params: {
         resolvedAuth: params.resolvedAuth,
         rateLimiter: params.rateLimiter,
         getReadiness: params.getReadiness,
+        trustedProxies: params.trustedProxies,
+        dangerouslyAllowHostHeaderOriginFallback: params.dangerouslyAllowHostHeaderOriginFallback,
         tlsOptions: params.gatewayTls?.enabled ? params.gatewayTls.tlsOptions : undefined,
       });
       try {
@@ -221,6 +226,9 @@ export async function createGatewayRuntimeState(params: {
         clients,
         resolvedAuth: params.resolvedAuth,
         rateLimiter: params.rateLimiter,
+        trustedProxies: params.trustedProxies,
+        allowRealIpFallback: params.allowRealIpFallback,
+        dangerouslyAllowHostHeaderOriginFallback: params.dangerouslyAllowHostHeaderOriginFallback,
       });
     }
 

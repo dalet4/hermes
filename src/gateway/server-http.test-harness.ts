@@ -124,6 +124,8 @@ export function createTestGatewayServer(options: {
     openAiChatCompletionsEnabled: false,
     openResponsesEnabled: false,
     handleHooksRequest: async () => false,
+    trustedProxies: [],
+    dangerouslyAllowHostHeaderOriginFallback: false,
     ...options.overrides,
     resolvedAuth: options.resolvedAuth,
   });

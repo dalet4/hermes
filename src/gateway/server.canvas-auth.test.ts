@@ -150,6 +150,8 @@ async function withCanvasGatewayHarness(params: {
     handleHooksRequest: async () => false,
     resolvedAuth: params.resolvedAuth,
     rateLimiter: params.rateLimiter,
+    trustedProxies: [],
+    dangerouslyAllowHostHeaderOriginFallback: false,
   });
 
   const wss = new WebSocketServer({ noServer: true });
@@ -160,6 +162,9 @@ async function withCanvasGatewayHarness(params: {
     clients,
     resolvedAuth: params.resolvedAuth,
     rateLimiter: params.rateLimiter,
+    trustedProxies: [],
+    allowRealIpFallback: false,
+    dangerouslyAllowHostHeaderOriginFallback: false,
   });
 
   const listener = await listen(httpServer, params.listenHost);
