@@ -138,15 +138,23 @@ if (isRailway) {
     console.log("[entrypoint] Railway detected: added internal ranges to gateway.trustedProxies");
     updated = true;
   }
+  config.gateway.auth = config.gateway.auth || {};
   if (gatewayToken) {
-    config.gateway.auth = config.gateway.auth || {};
     if (config.gateway.auth.token !== gatewayToken) {
       config.gateway.auth.token = gatewayToken;
-      console.log("[entrypoint] set gateway.auth.token from OPENCLAW_GATEWAY_TOKEN (overrides seed config)");
+      console.log("[entrypoint] set gateway.auth.token from OPENCLAW_GATEWAY_TOKEN");
       updated = true;
     }
+  } else if (!config.gateway.auth.token) {
+    // No env var and no persisted token — auto-generate one and persist it.
+    const crypto = require("crypto");
+    const generated = crypto.randomBytes(32).toString("hex");
+    config.gateway.auth.token = generated;
+    console.log("[entrypoint] OPENCLAW_GATEWAY_TOKEN not set — generated gateway token: " + generated);
+    console.log("[entrypoint] Copy the token above into your Control UI settings.");
+    updated = true;
   } else {
-    console.warn("[entrypoint] WARNING: OPENCLAW_GATEWAY_TOKEN is not set. Gateway may refuse to start on network bind.");
+    console.log("[entrypoint] OPENCLAW_GATEWAY_TOKEN not set — using persisted gateway token from config.");
   }
 }
 
