@@ -512,4 +512,9 @@ export type GatewayConfig = {
    * the rolling window expires. Default: 10.
    */
   channelMaxRestartsPerHour?: number;
+  /**
+   * Suppress security warnings for dangerous configuration flags.
+   * Useful in managed environments like Railway where these flags are required.
+   */
+  suppressSecurityWarnings?: boolean;
 };
