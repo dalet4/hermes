@@ -35,7 +35,7 @@ export function logGatewayStartup(params: {
   }
 
   const enabledDangerousFlags = collectEnabledInsecureOrDangerousFlags(params.cfg);
-  if (enabledDangerousFlags.length > 0) {
+  if (enabledDangerousFlags.length > 0 && !params.cfg.gateway?.suppressSecurityWarnings) {
     const warning =
       `security warning: dangerous config flags enabled: ${enabledDangerousFlags.join(", ")}. ` +
       "Run `openclaw security audit`.";
