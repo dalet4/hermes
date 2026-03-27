@@ -100,7 +100,10 @@ jobs:
           UPSTREAM_SHA="${{ steps.sync.outputs.upstream_sha }}"
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
-          EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open --label "sync-conflict" --json number --jq '.[0].number')
+          # Ensure the label exists (no-op if it already does)
+          gh label create "sync-conflict" --repo "${{ github.repository }}" --color "e11d48" --description "Upstream sync hit a rebase conflict" 2>/dev/null || true
+
+          EXISTING=$(gh issue list --repo "${{ github.repository }}" --state open --label "sync-conflict" --json number --jq '.[0].number' 2>/dev/null || echo "")
           if [ -n "$EXISTING" ]; then
             gh issue comment "$EXISTING" --repo "${{ github.repository }}" --body "Sync conflict still unresolved (upstream \`${UPSTREAM_SHA:0:10}\`). [Failed run]($RUN_URL)"
           else
