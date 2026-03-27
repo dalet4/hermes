@@ -184,9 +184,20 @@ if (isRailway) {
   }
 }
 
-// Inject OPENROUTER_API_KEY into agent auth and model configs
+// Inject OPENROUTER_API_KEY into global models config AND per-agent files.
+// The global path (models.providers.openrouter.apiKey) is used by the gateway
+// when provisioning new agents, so this works even on first boot before any
+// agent directories exist.
 const openrouterKey = process.env.OPENROUTER_API_KEY;
 if (openrouterKey) {
+  config.models = config.models || {};
+  config.models.providers = config.models.providers || {};
+  config.models.providers.openrouter = config.models.providers.openrouter || {};
+  if (config.models.providers.openrouter.apiKey !== openrouterKey) {
+    config.models.providers.openrouter.apiKey = openrouterKey;
+    console.log("[entrypoint] injected OPENROUTER_API_KEY into models.providers.openrouter.apiKey");
+    updated = true;
+  }
   // Update models.json for all agents
   const agentsDir = path.join(process.env.HOME, ".openclaw", "agents");
   try {
