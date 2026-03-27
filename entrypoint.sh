@@ -96,12 +96,10 @@ if (railwayPublicDomain) {
     console.log("[entrypoint] set gateway.controlUi.allowedOrigins to include " + railwayOrigin);
     updated = true;
   }
-  // allowedOrigins is now set — disable the Host-header fallback so the warning stops
-  if (config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback !== false) {
-    config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = false;
-    updated = true;
-  }
-} else if (config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback !== true) {
+}
+// Always keep the Host-header fallback enabled on Railway so connections are never
+// blocked if allowedOrigins doesn't match (e.g. custom domains, IP access).
+if (config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback !== true) {
   config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true;
   console.log("[entrypoint] set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true");
   updated = true;
