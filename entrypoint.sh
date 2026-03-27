@@ -84,7 +84,24 @@ if (config.gateway.controlUi.dangerouslyDisableDeviceAuth !== true) {
   updated = true;
 }
 
-if (config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback !== true) {
+// Set allowedOrigins from RAILWAY_PUBLIC_DOMAIN if available, so the gateway
+// validates WebSocket origins properly instead of using the Host-header fallback.
+// Falls back to the Host-header fallback only when the domain isn't known.
+const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
+if (railwayPublicDomain) {
+  const railwayOrigin = "https://" + railwayPublicDomain;
+  const existing = config.gateway.controlUi.allowedOrigins || [];
+  if (!existing.includes(railwayOrigin)) {
+    config.gateway.controlUi.allowedOrigins = [...existing, railwayOrigin];
+    console.log("[entrypoint] set gateway.controlUi.allowedOrigins to include " + railwayOrigin);
+    updated = true;
+  }
+  // allowedOrigins is now set — disable the Host-header fallback so the warning stops
+  if (config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback !== false) {
+    config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = false;
+    updated = true;
+  }
+} else if (config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback !== true) {
   config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true;
   console.log("[entrypoint] set gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true");
   updated = true;
@@ -155,6 +172,17 @@ if (isRailway) {
     updated = true;
   } else {
     console.log("[entrypoint] OPENCLAW_GATEWAY_TOKEN not set — using persisted gateway token from config.");
+  }
+
+  // Log the tokenized dashboard URL so users can bookmark it and skip the token prompt.
+  // The token is embedded as ?token=... — the Control UI reads it on load and auto-connects.
+  const dashboardToken = config.gateway.auth.token;
+  if (dashboardToken && railwayPublicDomain) {
+    const tokenizedUrl = "https://" + railwayPublicDomain + "/?token=" + dashboardToken;
+    console.log("[entrypoint] ────────────────────────────────────────────────────");
+    console.log("[entrypoint] Bookmark this URL to skip the token prompt on every visit:");
+    console.log("[entrypoint] " + tokenizedUrl);
+    console.log("[entrypoint] ────────────────────────────────────────────────────");
   }
 }
 
