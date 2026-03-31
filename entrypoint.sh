@@ -184,12 +184,16 @@ if (isRailway) {
   }
 }
 
-// Inject OPENROUTER_API_KEY into global models config AND per-agent files.
-// The global path (models.providers.openrouter.apiKey) is used by the gateway
-// when provisioning new agents, so this works even on first boot before any
-// agent directories exist.
+// Inject OPENROUTER_API_KEY into config.env (the canonical location per docs)
+// and also into models.providers.openrouter.apiKey for legacy compat.
 const openrouterKey = process.env.OPENROUTER_API_KEY;
 if (openrouterKey) {
+  config.env = config.env || {};
+  if (config.env.OPENROUTER_API_KEY !== openrouterKey) {
+    config.env.OPENROUTER_API_KEY = openrouterKey;
+    console.log("[entrypoint] injected OPENROUTER_API_KEY into config.env.OPENROUTER_API_KEY");
+    updated = true;
+  }
   config.models = config.models || {};
   config.models.providers = config.models.providers || {};
   config.models.providers.openrouter = config.models.providers.openrouter || {};
@@ -271,7 +275,7 @@ if [ "$(id -u)" = '0' ]; then
   echo "[entrypoint] Running as root. Fixing permissions for /home/node..."
   chown -R node:node /home/node
   # Execute as node user. Use -m to preserve HOME and other env vars (like PORT, OPENROUTER_API_KEY).
-  exec su -m node -s /bin/sh -c "node scripts/run-node.mjs gateway run --allow-unconfigured"
+  exec su -m node -s /bin/sh -c "node openclaw.mjs gateway run --allow-unconfigured"
 else
-  exec node scripts/run-node.mjs gateway run --allow-unconfigured
+  exec node openclaw.mjs gateway run --allow-unconfigured
 fi
