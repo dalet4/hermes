@@ -123,11 +123,7 @@ if (isRailway) {
     console.log(`[entrypoint] Railway detected: set gateway.port = ${railwayPort} (from PORT env var)`);
     updated = true;
   }
-  if (config.gateway.suppressSecurityWarnings !== true) {
-    config.gateway.suppressSecurityWarnings = true;
-    console.log("[entrypoint] Railway detected: set gateway.suppressSecurityWarnings = true");
-    updated = true;
-  }
+  // suppressSecurityWarnings is not a valid config key; skip it.
   const trustedProxies = config.gateway.trustedProxies || [];
   const internalRanges = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "172.31.0.0/16"];
   let proxiesAdded = false;
@@ -184,22 +180,28 @@ if (isRailway) {
   }
 }
 
-// Inject OPENROUTER_API_KEY into config.env (the canonical location per docs)
-// and also into models.providers.openrouter.apiKey for legacy compat.
+// Inject OPENROUTER_API_KEY into config.env (the canonical location per docs).
+// Do NOT write to models.providers.openrouter — that sub-object requires baseUrl+models
+// and will fail schema validation if those required fields are absent.
+// Also clean up any stale invalid keys previously written to the config.
 const openrouterKey = process.env.OPENROUTER_API_KEY;
+if (config.models && config.models.providers && config.models.providers.openrouter) {
+  delete config.models.providers.openrouter;
+  if (Object.keys(config.models.providers).length === 0) delete config.models.providers;
+  if (config.models && Object.keys(config.models).length === 0) delete config.models;
+  console.log("[entrypoint] removed stale models.providers.openrouter from config");
+  updated = true;
+}
+if (config.gateway && config.gateway.suppressSecurityWarnings !== undefined) {
+  delete config.gateway.suppressSecurityWarnings;
+  console.log("[entrypoint] removed stale gateway.suppressSecurityWarnings from config");
+  updated = true;
+}
 if (openrouterKey) {
   config.env = config.env || {};
   if (config.env.OPENROUTER_API_KEY !== openrouterKey) {
     config.env.OPENROUTER_API_KEY = openrouterKey;
     console.log("[entrypoint] injected OPENROUTER_API_KEY into config.env.OPENROUTER_API_KEY");
-    updated = true;
-  }
-  config.models = config.models || {};
-  config.models.providers = config.models.providers || {};
-  config.models.providers.openrouter = config.models.providers.openrouter || {};
-  if (config.models.providers.openrouter.apiKey !== openrouterKey) {
-    config.models.providers.openrouter.apiKey = openrouterKey;
-    console.log("[entrypoint] injected OPENROUTER_API_KEY into models.providers.openrouter.apiKey");
     updated = true;
   }
   // Update models.json for all agents
