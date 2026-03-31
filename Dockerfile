@@ -147,6 +147,7 @@ COPY --from=runtime-assets --chown=node:node /app/package.json .
 COPY --from=runtime-assets --chown=node:node /app/openclaw.mjs .
 COPY --from=runtime-assets --chown=node:node /app/extensions ./extensions
 COPY --from=runtime-assets --chown=node:node /app/skills ./skills
+COPY --from=runtime-assets --chown=node:node /app/entrypoint.sh .
 COPY --from=runtime-assets --chown=node:node /app/docs ./docs
 
 # In npm-installed Docker images, prefer the copied source extension tree for
@@ -253,4 +254,4 @@ USER node
 # For external access from host/ingress, override bind to "lan" and set auth.
 HEALTHCHECK --interval=3m --timeout=10s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:18789/healthz').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
-CMD ["node", "openclaw.mjs", "gateway", "--allow-unconfigured"]
+CMD ["bash", "entrypoint.sh"]
