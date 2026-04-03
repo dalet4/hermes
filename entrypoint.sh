@@ -265,6 +265,17 @@ if (telegramBotToken) {
   console.warn("[entrypoint] WARNING: TELEGRAM_BOT_TOKEN is not set. Telegram channel may not work.");
 }
 
+// Pin heartbeat to a free OpenRouter model so it never consumes paid credits.
+const FREE_HEARTBEAT_MODEL = "openrouter/meta-llama/llama-3.1-8b-instruct:free";
+config.agents = config.agents || {};
+config.agents.defaults = config.agents.defaults || {};
+config.agents.defaults.heartbeat = config.agents.defaults.heartbeat || {};
+if (config.agents.defaults.heartbeat.model !== FREE_HEARTBEAT_MODEL) {
+  config.agents.defaults.heartbeat.model = FREE_HEARTBEAT_MODEL;
+  console.log("[entrypoint] set agents.defaults.heartbeat.model to free model:", FREE_HEARTBEAT_MODEL);
+  updated = true;
+}
+
 if (updated) {
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
   console.log("[entrypoint] updated config in", configFile);
