@@ -87,13 +87,28 @@ if (config.gateway.controlUi.dangerouslyDisableDeviceAuth !== true) {
 // Set allowedOrigins from RAILWAY_PUBLIC_DOMAIN if available, so the gateway
 // validates WebSocket origins properly instead of using the Host-header fallback.
 // Falls back to the Host-header fallback only when the domain isn't known.
+// Include common Railway domain variations to avoid the Host-header fallback warning.
 const railwayPublicDomain = process.env.RAILWAY_PUBLIC_DOMAIN;
 if (railwayPublicDomain) {
-  const railwayOrigin = "https://" + railwayPublicDomain;
+  const candidateOrigins = [
+    "https://" + railwayPublicDomain,
+    "https://" + railwayPublicDomain.toLowerCase(),
+  ];
+  const railwayStaticUrl = process.env.RAILWAY_STATIC_URL;
+  if (railwayStaticUrl) {
+    candidateOrigins.push(railwayStaticUrl.startsWith("https://") ? railwayStaticUrl : "https://" + railwayStaticUrl);
+  }
   const existing = config.gateway.controlUi.allowedOrigins || [];
-  if (!existing.includes(railwayOrigin)) {
-    config.gateway.controlUi.allowedOrigins = [...existing, railwayOrigin];
-    console.log("[entrypoint] set gateway.controlUi.allowedOrigins to include " + railwayOrigin);
+  let originsAdded = false;
+  for (const origin of candidateOrigins) {
+    if (!existing.includes(origin)) {
+      existing.push(origin);
+      originsAdded = true;
+    }
+  }
+  if (originsAdded) {
+    config.gateway.controlUi.allowedOrigins = existing;
+    console.log("[entrypoint] set gateway.controlUi.allowedOrigins:", existing.join(", "));
     updated = true;
   }
 }
@@ -265,6 +280,28 @@ if (telegramBotToken) {
   console.warn("[entrypoint] WARNING: TELEGRAM_BOT_TOKEN is not set. Telegram channel may not work.");
 }
 
+// Inject ANTHROPIC_API_KEY and set Claude Haiku as the default conversation model.
+// Heartbeat stays on the free OpenRouter model to avoid paid credit usage.
+const anthropicKey = process.env.ANTHROPIC_API_KEY;
+if (anthropicKey) {
+  config.env = config.env || {};
+  if (config.env.ANTHROPIC_API_KEY !== anthropicKey) {
+    config.env.ANTHROPIC_API_KEY = anthropicKey;
+    console.log("[entrypoint] injected ANTHROPIC_API_KEY into config.env.ANTHROPIC_API_KEY");
+    updated = true;
+  }
+  const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
+  config.agents = config.agents || {};
+  config.agents.defaults = config.agents.defaults || {};
+  if (config.agents.defaults.model !== CLAUDE_MODEL) {
+    config.agents.defaults.model = CLAUDE_MODEL;
+    console.log("[entrypoint] set agents.defaults.model to Claude:", CLAUDE_MODEL);
+    updated = true;
+  }
+} else {
+  console.warn("[entrypoint] WARNING: ANTHROPIC_API_KEY is not set. Add it in Railway env vars to use Claude as the default model.");
+}
+
 // Pin heartbeat to a free OpenRouter model so it never consumes paid credits.
 const FREE_HEARTBEAT_MODEL = "openrouter/meta-llama/llama-3.1-8b-instruct:free";
 config.agents = config.agents || {};
@@ -274,6 +311,24 @@ if (config.agents.defaults.heartbeat.model !== FREE_HEARTBEAT_MODEL) {
   config.agents.defaults.heartbeat.model = FREE_HEARTBEAT_MODEL;
   console.log("[entrypoint] set agents.defaults.heartbeat.model to free model:", FREE_HEARTBEAT_MODEL);
   updated = true;
+}
+
+// Configure memory-lancedb with OpenAI embeddings when OPENAI_API_KEY is present.
+const openaiKey = process.env.OPENAI_API_KEY;
+if (openaiKey) {
+  config.plugins = config.plugins || {};
+  config.plugins["memory-lancedb"] = config.plugins["memory-lancedb"] || {};
+  const mem = config.plugins["memory-lancedb"];
+  const embeddingChanged = !mem.embedding || mem.embedding.apiKey !== openaiKey;
+  if (embeddingChanged) {
+    mem.embedding = { apiKey: openaiKey, model: "text-embedding-3-small" };
+    if (mem.autoCapture === undefined) mem.autoCapture = true;
+    if (mem.autoRecall === undefined) mem.autoRecall = true;
+    console.log("[entrypoint] configured memory-lancedb with OpenAI embeddings (auto-capture + auto-recall enabled)");
+    updated = true;
+  }
+} else {
+  console.warn("[entrypoint] INFO: OPENAI_API_KEY not set — memory-lancedb will not be auto-configured. Add it in Railway env vars to enable persistent memory.");
 }
 
 if (updated) {
