@@ -324,13 +324,7 @@ if (config.agents.defaults.heartbeat.model !== FREE_HEARTBEAT_MODEL) {
   updated = true;
 }
 
-// Enable memory-core — no embeddings or external API key required.
-config.plugins = config.plugins || {};
-if (!config.plugins["memory-core"]) {
-  config.plugins["memory-core"] = {};
-  console.log("[entrypoint] enabled memory-core plugin");
-  updated = true;
-}
+// Note: memory-core is enabled via the Control UI (Plugins tab), not via config injection.
 
 if (updated) {
   fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
