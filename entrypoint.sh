@@ -280,7 +280,8 @@ if (telegramBotToken) {
   console.warn("[entrypoint] WARNING: TELEGRAM_BOT_TOKEN is not set. Telegram channel may not work.");
 }
 
-// Inject ANTHROPIC_API_KEY and set Claude Haiku as the default conversation model.
+// Set Claude Haiku via OpenRouter as the default conversation model.
+// Uses ANTHROPIC_API_KEY (direct) if available, otherwise falls back to OpenRouter.
 // Heartbeat stays on the free OpenRouter model to avoid paid credit usage.
 const anthropicKey = process.env.ANTHROPIC_API_KEY;
 if (anthropicKey) {
@@ -295,11 +296,21 @@ if (anthropicKey) {
   config.agents.defaults = config.agents.defaults || {};
   if (config.agents.defaults.model !== CLAUDE_MODEL) {
     config.agents.defaults.model = CLAUDE_MODEL;
-    console.log("[entrypoint] set agents.defaults.model to Claude:", CLAUDE_MODEL);
+    console.log("[entrypoint] set agents.defaults.model to Claude (direct):", CLAUDE_MODEL);
+    updated = true;
+  }
+} else if (process.env.OPENROUTER_API_KEY) {
+  // No direct Anthropic key — use Claude Haiku via OpenRouter instead.
+  const CLAUDE_VIA_OPENROUTER = "openrouter/anthropic/claude-haiku-4-5-20251001";
+  config.agents = config.agents || {};
+  config.agents.defaults = config.agents.defaults || {};
+  if (config.agents.defaults.model !== CLAUDE_VIA_OPENROUTER) {
+    config.agents.defaults.model = CLAUDE_VIA_OPENROUTER;
+    console.log("[entrypoint] set agents.defaults.model to Claude via OpenRouter:", CLAUDE_VIA_OPENROUTER);
     updated = true;
   }
 } else {
-  console.warn("[entrypoint] WARNING: ANTHROPIC_API_KEY is not set. Add it in Railway env vars to use Claude as the default model.");
+  console.warn("[entrypoint] WARNING: Neither ANTHROPIC_API_KEY nor OPENROUTER_API_KEY is set. Default model not configured.");
 }
 
 // Pin heartbeat to a free OpenRouter model so it never consumes paid credits.
@@ -313,22 +324,12 @@ if (config.agents.defaults.heartbeat.model !== FREE_HEARTBEAT_MODEL) {
   updated = true;
 }
 
-// Configure memory-lancedb with OpenAI embeddings when OPENAI_API_KEY is present.
-const openaiKey = process.env.OPENAI_API_KEY;
-if (openaiKey) {
-  config.plugins = config.plugins || {};
-  config.plugins["memory-lancedb"] = config.plugins["memory-lancedb"] || {};
-  const mem = config.plugins["memory-lancedb"];
-  const embeddingChanged = !mem.embedding || mem.embedding.apiKey !== openaiKey;
-  if (embeddingChanged) {
-    mem.embedding = { apiKey: openaiKey, model: "text-embedding-3-small" };
-    if (mem.autoCapture === undefined) mem.autoCapture = true;
-    if (mem.autoRecall === undefined) mem.autoRecall = true;
-    console.log("[entrypoint] configured memory-lancedb with OpenAI embeddings (auto-capture + auto-recall enabled)");
-    updated = true;
-  }
-} else {
-  console.warn("[entrypoint] INFO: OPENAI_API_KEY not set — memory-lancedb will not be auto-configured. Add it in Railway env vars to enable persistent memory.");
+// Enable memory-core — no embeddings or external API key required.
+config.plugins = config.plugins || {};
+if (!config.plugins["memory-core"]) {
+  config.plugins["memory-core"] = {};
+  console.log("[entrypoint] enabled memory-core plugin");
+  updated = true;
 }
 
 if (updated) {
