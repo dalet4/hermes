@@ -1,10 +1,22 @@
 services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - openclaw-gateway
+      - n8n
+
   openclaw-gateway:
     image: ghcr.io/dalet4/openclaw:latest
     restart: unless-stopped
     init: true
-    ports:
-      - "18789:18789"
     environment:
       HOME: /home/node
       TERM: xterm-256color
@@ -26,6 +38,20 @@ services:
       retries: 5
       start_period: 20s
 
+  n8n:
+    image: n8nio/n8n:latest
+    restart: unless-stopped
+    environment:
+      N8N_HOST: n8n.aigentic-ai.co.uk
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      WEBHOOK_URL: https://n8n.aigentic-ai.co.uk/
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      GENERIC_TIMEZONE: Europe/London
+      TZ: Europe/London
+    volumes:
+      - n8n-data:/home/node/.n8n
+
 volumes:
   openclaw-data:
     driver: local
@@ -33,3 +59,11 @@ volumes:
       type: none
       o: bind
       device: /opt/openclaw/data
+  n8n-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/openclaw/n8n
+  caddy-data:
+  caddy-config:
