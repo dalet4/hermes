@@ -120,17 +120,18 @@ if (config.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback !== true) 
   updated = true;
 }
 
-// On Railway: bind to 0.0.0.0 so the proxy can reach the gateway.
-// The gateway refuses to bind to non-loopback without a shared secret,
-// so we also inject OPENCLAW_GATEWAY_TOKEN as the auth token.
+// Bind to 0.0.0.0 when running behind a reverse proxy (Railway, Hetzner+nginx, etc).
+// The gateway refuses to bind beyond loopback without an auth token, so inject one.
 // Railway also injects PORT (usually 8080) and expects the app to listen there.
 const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN;
 const railwayPort = process.env.PORT ? parseInt(process.env.PORT, 10) : null;
 const isRailway = process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_SERVICE_NAME || process.env.RAILWAY_ENVIRONMENT_ID || process.env.RAILWAY_SERVICE_ID;
-if (isRailway) {
+// OPENCLAW_BIND_LAN=1 forces LAN bind on non-Railway hosts (e.g. Hetzner VPS behind nginx).
+const forceBindLan = process.env.OPENCLAW_BIND_LAN === "1" || isRailway;
+if (forceBindLan) {
   if (config.gateway.bind !== "lan") {
     config.gateway.bind = "lan";
-    console.log("[entrypoint] Railway detected: set gateway.bind = lan (0.0.0.0)");
+    console.log("[entrypoint] set gateway.bind = lan (0.0.0.0)");
     updated = true;
   }
   if (railwayPort && config.gateway.port !== railwayPort) {
@@ -161,7 +162,7 @@ if (isRailway) {
   }
   if (proxiesAdded) {
     config.gateway.trustedProxies = trustedProxies;
-    console.log("[entrypoint] Railway detected: added internal ranges to gateway.trustedProxies");
+    console.log("[entrypoint] added internal ranges to gateway.trustedProxies");
     updated = true;
   }
   config.gateway.auth = config.gateway.auth || {};
