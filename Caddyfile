@@ -1,7 +1,3 @@
-assistant.aigentic-ai.co.uk {
-    reverse_proxy openclaw-gateway:18789
-}
-
 n8n.aigentic-ai.co.uk {
     reverse_proxy n8n:5678
 }
