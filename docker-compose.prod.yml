@@ -14,16 +14,17 @@ services:
       - n8n
 
   hermes:
-    build: .
+    build: /opt/hermes-src
+    image: hermes-agent
     restart: unless-stopped
     environment:
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      OPENCLAW_BIND_LAN: "1"
+      HERMES_HOME: /opt/data
+      HERMES_UID: "0"
+      HERMES_GID: "0"
       TZ: Europe/London
     volumes:
-      - hermes-data:/home/node/.openclaw
+      - hermes-data:/opt/data
+    command: ["gateway", "start"]
 
   n8n:
     image: n8nio/n8n:latest
@@ -45,7 +46,7 @@ volumes:
     driver_opts:
       type: none
       o: bind
-      device: /opt/hermes/openclaw-data
+      device: /opt/hermes/data
   n8n-data:
     driver: local
     driver_opts:
