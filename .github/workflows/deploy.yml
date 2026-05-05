@@ -11,12 +11,13 @@ jobs:
       - name: Deploy to Hetzner
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.HETZNER_HOST }}
+          host: ${{ secrets.DO_HOST }}
           username: root
-          key: ${{ secrets.HETZNER_SSH_KEY }}
+          key: ${{ secrets.DO_SSH_KEY }}
           script: |
             cd /opt/hermes
             git pull origin main
-            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml build hermes
+            docker compose -f docker-compose.prod.yml pull n8n caddy
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f
