@@ -54,7 +54,7 @@ jobs:
             for f in $CONFLICTED; do
               case "$f" in
                 # Fork-owned files: always keep our version
-                .github/workflows/*|entrypoint.sh|Dockerfile|railway.toml|railway.json|scripts/docker/*)
+                .github/workflows/*|entrypoint.sh|Dockerfile|railway.toml|railway.json|scripts/docker/*|docker-compose.prod.yml|Caddyfile)
                   git checkout --ours "$f" || git rm "$f"
                   git add "$f" 2>/dev/null || true
                   ;;
