@@ -1,3 +1,7 @@
 n8n.aigentic-ai.co.uk {
     reverse_proxy n8n:5678
 }
+
+openclaw.aigentic-ai.co.uk {
+    reverse_proxy hermes:18789
+}
