@@ -17,6 +17,7 @@ jobs:
           script: |
             cd /opt/hermes
             git pull origin main
+            if [ -d /opt/hermes-src ]; then git -C /opt/hermes-src pull; else git clone https://github.com/NousResearch/hermes-agent.git /opt/hermes-src; fi
             docker compose -f docker-compose.prod.yml build hermes
             docker compose -f docker-compose.prod.yml pull n8n caddy
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
